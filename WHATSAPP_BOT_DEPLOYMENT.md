@@ -6,6 +6,119 @@ Escrito para quem está a aprender Linux/Docker — todos os comandos são para 
 
 ---
 
+## OPÇÃO A: Oracle Cloud Always Free (100% Grátis - Recomendado)
+
+### Porquê Oracle Cloud?
+
+- **100% grátis para sempre** (não expira, não é trial)
+- **2 OCPU + 12GB RAM** (recursos muito generosos)
+- **200GB storage**
+- **10TB/mês egress**
+- **Regions EU disponíveis** (Frankfurt, Amsterdam, Zurich)
+- **Suficiente para n8n + WAHA + Postgres + Redis + Caddy**
+
+### Passo 1: Criar conta Oracle Cloud
+
+1. Aceder a: https://signup.oraclecloud.com/
+2. Preencher dados pessoais e de contacto
+3. **Requer cartão de crédito para verificação** (não cobram nada, é só validação)
+4. Aguardar aprovação (pode demorar algumas horas a 1-2 dias)
+
+### Passo 2: Criar VM Instance (Always Free)
+
+1. No dashboard Oracle Cloud, clicar em **"Create Instance"**
+2. Configurar:
+   - **Compartment in:** root compartment (default)
+   - **Name:** `kubo-loko-whatsapp-bot`
+   - **Region:** Frankfurt (eu-frankfurt-1) ou Amsterdam (eu-amsterdam-1)
+   - **Availability Domain:** qualquer uma disponível
+   - **Image and Shape:** clicar em "Change Image"
+     - **Image:** Ubuntu 22.04 LTS (ou 24.04 se disponível)
+   - **Shape:** clicar em "Change Shape"
+     - **Series:** Ampere (ARM)
+     - **Shape:** VM.Standard.A1.Flex
+     - **OCPUs:** 2
+     - **Memory:** 12 GB
+   - **Networking:**
+     - Virtual cloud network compartment: root compartment
+     - Subnet: qualquer uma disponível
+     - **Assign a public IPv4 address:** ✅ (checked)
+   - **Add SSH key:**
+     - Escolher "Generate a key pair for me" OU "Choose an existing public key"
+     - Se gerares nova: fazer download do ficheiro `.key` e guardar em segurança
+     - Se usares chave existente: colar o conteúdo de `id_ed25519.pub`
+   - **Boot volume:**
+     - Check: "Custom size"
+     - Size: **200 GB** (máximo do free tier)
+3. Clicar em **"Create"**
+
+### Passo 3: Configurar Security List (PORTAS)
+
+**MUITO IMPORTANTE:** Oracle bloqueia todas as portas por defeito. Tens de abrir manualmente:
+
+1. No dashboard da instância, clicar em **Subnet** (link azul)
+2. Clicar em **Security List** (link azul, ex. "Default Security List")
+3. Clicar em **Add Ingress Rules**
+4. Adicionar 3 regras:
+
+   **Regra 1 - SSH:**
+   - Source Type: CIDR
+   - Source CIDR: `0.0.0.0/0`
+   - Destination Port Range: `22`
+   - Description: `SSH`
+
+   **Regra 2 - HTTP:**
+   - Source Type: CIDR
+   - Source CIDR: `0.0.0.0/0`
+   - Destination Port Range: `80`
+   - Description: `HTTP`
+
+   **Regra 3 - HTTPS:**
+   - Source Type: CIDR
+   - Source CIDR: `0.0.0.0/0`
+   - Destination Port Range: `443`
+   - Description: `HTTPS`
+
+5. Clicar em **Add Ingress Rules**
+
+### Passo 4: SSH para a VM
+
+**Se usaste chave SSH Oracle:**
+
+```powershell
+# No Windows PowerShell
+ssh -i C:\caminho\para\a\chave.key ubuntu@SEU_IP_PUBLICO
+```
+
+**Se usaste a tua chave existente:**
+
+```powershell
+ssh ubuntu@SEU_IP_PUBLICO
+```
+
+Substitui `SEU_IP_PUBLICO` pelo IP que aparece no dashboard Oracle (copia-o de lá).
+
+### Passo 5: Continuar deployment
+
+Agora segue o resto deste guia a partir do **Passo 4** (atualizar sistema, criar utilizador, instalar Docker, etc.).
+
+**NOTA IMPORTANTE:** Oracle usa ARM64 (Ampere). n8n e WAHA funcionam perfeitamente em ARM64 — não precisas de mudar nada.
+
+---
+
+## Troubleshooting Oracle Cloud
+
+### "Out of capacity" ao criar VM
+
+**Problema:** Oracle não tem capacidade disponível na region escolhida.
+
+**Solução:**
+- Tentar outra region: Frankfurt → Amsterdam → Zurich
+- Tentar em horários diferentes (madrugada PT tem mais disponibilidade)
+- Tentar shape de fallback: VM.Standard.E2.1.Micro (1GB RAM, também grátis, mas menos potente)
+
+### SSH não funciona
+
 ## 1. Recomendação de fornecedor VPS
 
 Comparação entre os 4 fornecedores pedidos (preços de setembro de 2026):
