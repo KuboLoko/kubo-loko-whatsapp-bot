@@ -1,0 +1,11 @@
+# Caddy faz HTTPS automático (Let's Encrypt) para o n8n e o WAHA.
+# Substitui os domínios abaixo pelos teus antes de subir para o VPS.
+# Os valores default aqui têm de corresponder a N8N_HOST e WAHA_HOST no .env.
+
+n8n.kuboloko.pt {
+	reverse_proxy n8n:5678
+}
+
+waha.kuboloko.pt {
+	reverse_proxy waha:3000
+}

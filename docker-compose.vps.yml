@@ -1,0 +1,121 @@
+# Docker Compose de PRODUÇÃO para o bot de WhatsApp Kubo Loko (n8n + WAHA + Postgres + Redis)
+# Uso: copiar este ficheiro e o .env.vps.example para o VPS, renomear para docker-compose.yml e .env,
+# preencher as credenciais e correr `docker compose up -d`.
+#
+# Ver WHATSAPP_BOT_DEPLOYMENT.md para o guia completo passo a passo.
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: kubo-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - kubo-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: kubo-redis
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - kubo-net
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: kubo-n8n
+    restart: always
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      N8N_HOST: ${N8N_HOST}
+      N8N_PROTOCOL: https
+      N8N_PORT: 5678
+      N8N_EDITOR_BASE_URL: https://${N8N_HOST}
+      WEBHOOK_URL: https://${N8N_HOST}/
+      N8N_SECURE_COOKIE: "true"
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      GENERIC_TIMEZONE: Europe/Lisbon
+      TZ: Europe/Lisbon
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_PRUNE_MAX_AGE: "720"
+      N8N_RUNNERS_ENABLED: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - kubo-net
+
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: kubo-waha
+    restart: always
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      WAHA_WORKER_ID: kubo
+      WAHA_PRINT_QR: "true"
+      WHATSAPP_DEFAULT_ENGINE: GOWS
+      WAHA_API_KEY: ${WAHA_API_KEY}
+      WAHA_DASHBOARD_USERNAME: ${WAHA_DASHBOARD_USERNAME}
+      WAHA_DASHBOARD_PASSWORD: ${WAHA_DASHBOARD_PASSWORD}
+      WHATSAPP_SWAGGER_USERNAME: ${WAHA_SWAGGER_USERNAME}
+      WHATSAPP_SWAGGER_PASSWORD: ${WAHA_SWAGGER_PASSWORD}
+    volumes:
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+    networks:
+      - kubo-net
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: kubo-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - n8n
+      - waha
+    networks:
+      - kubo-net
+
+networks:
+  kubo-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:
+  waha_sessions:
+  waha_media:
+  caddy_data:
+  caddy_config:
